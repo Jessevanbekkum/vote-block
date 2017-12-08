@@ -1,19 +1,21 @@
 from functions import hashMe
 import json
+import copy
 
+def newElection(voterList, partyList):
+
+    genesisBlockTxns = [BallotBox.getInitialState(voterList, partyList)]
+    genesisBlockContents = {u'blockNumber': 0, u'parentHash': None, u'txnCount': 1, u'txns': genesisBlockTxns}
+    genesisHash = hashMe(genesisBlockContents)
+    genesisBlock = {u'hash': genesisHash, u'contents': genesisBlockContents}
+    genesisBlockStr = json.dumps(genesisBlock, sort_keys=True)
+    return BallotBox([genesisBlock])
 
 class BallotBox:
 
-    def __init__(self, voterList, partyList):
-
-        self.state = self.getInitialState(voterList, partyList)
-
-        genesisBlockTxns = [self.getInitialState(voterList, partyList)]
-        genesisBlockContents = {u'blockNumber': 0, u'parentHash': None, u'txnCount': 1, u'txns': genesisBlockTxns}
-        genesisHash = hashMe(genesisBlockContents)
-        genesisBlock = {u'hash': genesisHash, u'contents': genesisBlockContents}
-        genesisBlockStr = json.dumps(genesisBlock, sort_keys=True)
-        self.chain = [genesisBlock]
+    def __init__(self, chain):
+        self.chain = chain
+        self.state = self.checkChain()
 
     def vote(self, voter, party):
 
@@ -36,7 +38,7 @@ class BallotBox:
     def updateState(self, state, vote):
         state['voters'][vote['voter']] = 0
         state['parties'][vote['party']] += 1
-        return state
+        return copy.deepcopy(state)
 
     def newVote(self, voter, party):
         return {'voter': voter, 'party': party}
@@ -55,11 +57,11 @@ class BallotBox:
 
         return True
 
-    def getInitialState(self, voters, parties):
+    @staticmethod
+    def getInitialState(voters, parties):
         state = {
             'voters': {},
             'parties': {}
-
         }
         for k in voters:
             state['voters'][k] = 1
@@ -80,7 +82,7 @@ class BallotBox:
 
         return block
 
-    def checkBlockHash(slef, block):
+    def checkBlockHash(self, block):
         # Raise an exception if the hash does not match the block contents
         expectedHash = hashMe(block['contents'])
         if block['hash'] != expectedHash:
@@ -89,6 +91,7 @@ class BallotBox:
         return
 
     def checkBlockValidity(self, block, parent, state):
+        state = copy.deepcopy(state)
         # We want to check the following conditions:
         # - Each of the transactions are valid updates to the system state
         # - Block hash is valid for the block contents
@@ -102,8 +105,6 @@ class BallotBox:
         for vote in block['contents']['txns']:
             if self.isValidVote(vote, state):
                 state = self.updateState(state, vote)
-            else:
-                raise Exception('Invalid transaction in block %s: %s' % (blockNumber, txn))
 
         self.checkBlockHash(block)  # Check hash integrity; raises error if inaccurate
 
@@ -114,6 +115,10 @@ class BallotBox:
             raise Exception('Parent hash not accurate at block %s' % blockNumber)
 
         return state
+
+    def updateChain(self, chain):
+        self.chain = copy.deepcopy(chain)
+        self.state = self.checkChain()
 
     def checkChain(self):
         # Work through the chain from the genesis block (which gets special treatment),
@@ -138,7 +143,7 @@ class BallotBox:
             state = self.checkBlockValidity(block, parent, state)
             parent = block
 
-        return state
+        return copy.deepcopy(state)
 
     def printLastBlock(self):
         print(self.chain[-1]['contents'])
