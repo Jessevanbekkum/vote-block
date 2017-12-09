@@ -9,6 +9,7 @@ class TestBallotBox(TestCase):
 
         box1 = newElection(voterList, partyList)
         box2 = BallotBox(copy.deepcopy(box1.chain))
+
         box1.printLastBlock()
         box1.vote('Alice', 'VVD')
 
@@ -32,12 +33,3 @@ class TestBallotBox(TestCase):
 
         box2.printOutcome()
         box2.checkChain()
-
-    def test_isValidVote(self):
-        self.fail()
-
-    def test_getInitialState(self):
-        self.fail()
-
-    def test_makeBlock(self):
-        self.fail()
